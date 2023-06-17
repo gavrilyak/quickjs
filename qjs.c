@@ -40,6 +40,7 @@
 
 #include "cutils.h"
 #include "quickjs-libc.h"
+JSModuleDef *js_init_module_ffi(JSContext *ctx, const char *module_name);
 
 extern const uint8_t qjsc_repl[];
 extern const uint32_t qjsc_repl_size;
@@ -120,6 +121,7 @@ static JSContext *JS_NewCustomContext(JSRuntime *rt)
     /* system modules */
     js_init_module_std(ctx, "std");
     js_init_module_os(ctx, "os");
+    js_init_module_ffi(ctx, "ffi");
     return ctx;
 }
 
@@ -453,9 +455,10 @@ int main(int argc, char **argv)
             help();
         }
     }
-
+#ifdef CONFIG_BIGNUM
     if (load_jscalc)
         bignum_ext = 1;
+#endif
 
     if (trace_memory) {
         js_trace_malloc_init(&trace_data);

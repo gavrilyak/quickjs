@@ -22,6 +22,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#define _GNU_SOURCE
+#define _LARGEFILE64_SOURCE 1
+#define _FILE_OFFSET_BITS 64
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -37,6 +41,11 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #if defined(_WIN32)
 #include <windows.h>
 #include <conio.h>
@@ -46,6 +55,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 
 #if defined(__APPLE__)
 typedef sig_t sighandler_t;
@@ -949,12 +959,32 @@ static JSValue js_std_fdopen(JSContext *ctx, JSValueConst this_val,
     mode = JS_ToCString(ctx, argv[1]);
     if (!mode)
         goto fail;
-    if (mode[strspn(mode, "rwa+")] != '\0') {
+
+    if (strcmp(mode, "tcp") == 0) {
+	struct sockaddr_in serv_addr;
+	int port = fd;
+	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            JS_ThrowTypeError(ctx, "could not create socket");
+	    goto fail;
+	}
+
+	memset(&serv_addr, '0', sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+        serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	if (connect(fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+            JS_ThrowTypeError(ctx, "could not connect socket");
+	    goto fail;
+	}
+        f = fdopen(fd, "a+");
+	goto opened;
+    } else if (mode[strspn(mode, "rwa+")] != '\0') {
         JS_ThrowTypeError(ctx, "invalid file mode");
         goto fail;
     }
 
     f = fdopen(fd, mode);
+  opened:
     if (!f)
         err = errno;
     else
@@ -3118,6 +3148,65 @@ static JSValue js_os_dup2(JSContext *ctx, JSValueConst this_val,
     return JS_NewInt32(ctx, ret);
 }
 
+static void js_mmap_free_func(JSRuntime* rt, void* opaque, void* ptr) 
+{
+    munmap(ptr, (size_t)opaque);
+}
+
+static JSValue js_mmap_map(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst argv[]) 
+{
+  uint64_t addr, length, offset;
+  int32_t prot, flags, fd;
+  void* ptr;
+
+  if(JS_ToIndex(ctx, &addr, argv[0]))
+    return JS_EXCEPTION;
+  if(JS_ToIndex(ctx, &length, argv[1]))
+    return JS_EXCEPTION;
+  if(argc <= 2 || !JS_IsNumber(argv[2]) || JS_ToInt32(ctx, &prot, argv[2]))
+    prot = PROT_READ | PROT_WRITE;
+  if(argc <= 3 || !JS_IsNumber(argv[3]) || JS_ToInt32(ctx, &flags, argv[3]))
+    flags = MAP_ANONYMOUS;
+  if(argc <= 4 || !JS_IsNumber(argv[4]) || JS_ToInt32(ctx, &fd, argv[4]))
+    fd = -1;
+  if(argc <= 5 || !JS_IsNumber(argv[5]) || JS_ToIndex(ctx, &offset, argv[5]))
+    offset = 0;
+
+  ptr = mmap((void*)addr, length, prot, flags, fd, offset);
+
+  if(ptr == 0)
+    return JS_EXCEPTION;
+
+  if(ptr == MAP_FAILED)
+    return JS_NewInt32(ctx, -1);
+
+  return JS_NewArrayBuffer(ctx, ptr, length, &js_mmap_free_func, (void*)length, !!(flags & MAP_SHARED));
+}
+
+static JSValue js_os_unmap(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst argv[]) {
+  JS_DetachArrayBuffer(ctx, argv[0]);
+  return JS_UNDEFINED;
+}
+
+static JSValue js_os_fallocate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst argv[]) {
+  int fd;
+  int flags;
+  uint64_t start;
+  uint64_t end;
+  if (JS_ToInt32(ctx, &fd, argv[0]))
+    return JS_EXCEPTION;
+  if (JS_ToInt32(ctx, &flags, argv[0]))
+    return JS_EXCEPTION;
+  if (JS_ToIndex(ctx, &start, argv[2]))
+    return JS_EXCEPTION;
+  if (JS_ToIndex(ctx, &end, argv[3]))
+    return JS_EXCEPTION;
+
+  int rc = fallocate(fd, flags, start, end);
+  return JS_NewInt32(ctx, rc);
+}
+
+
 #endif /* !_WIN32 */
 
 #ifdef USE_WORKER
@@ -3656,6 +3745,13 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     JS_CFUNC_DEF("kill", 2, js_os_kill ),
     JS_CFUNC_DEF("dup", 1, js_os_dup ),
     JS_CFUNC_DEF("dup2", 2, js_os_dup2 ),
+    JS_CFUNC_DEF("mmap", 2, js_mmap_map),
+    JS_CFUNC_DEF("munmap", 1, js_os_unmap),
+    JS_CFUNC_DEF("fallocate", 4, js_os_fallocate),
+    OS_FLAG(FALLOC_FL_KEEP_SIZE),
+    OS_FLAG(FALLOC_FL_PUNCH_HOLE),
+    OS_FLAG(FALLOC_FL_UNSHARE_RANGE),
+    OS_FLAG(FALLOC_FL_COLLAPSE_RANGE),
 #endif
 };
 

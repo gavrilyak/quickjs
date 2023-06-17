@@ -21,7 +21,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
 endif
@@ -48,7 +47,7 @@ prefix=/usr/local
 # use address sanitizer
 #CONFIG_ASAN=y
 # include the code for BigInt/BigFloat/BigDecimal and math mode
-CONFIG_BIGNUM=y
+#CONFIG_BIGNUM=y
 
 OBJDIR=.obj
 
@@ -99,7 +98,7 @@ STRIP=$(CROSS_PREFIX)strip
 ifdef CONFIG_WERROR
 CFLAGS+=-Werror
 endif
-DEFINES:=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
+DEFINES:=-DCONFIG_VERSION=\"$(shell cat VERSION)\"
 ifdef CONFIG_BIGNUM
 DEFINES+=-DCONFIG_BIGNUM
 endif
@@ -107,7 +106,10 @@ ifdef CONFIG_WIN32
 DEFINES+=-D__USE_MINGW_ANSI_STDIO # for standard snprintf behavior
 endif
 
+CROSS_PREFIX=arm-linux-gnueabihf-
+
 CFLAGS+=$(DEFINES)
+CFLAGS+=-I../libffi/arm-unknown-linux-gnueabihf/include -I.
 CFLAGS_DEBUG=$(CFLAGS) -O0
 CFLAGS_SMALL=$(CFLAGS) -Os
 CFLAGS_OPT=$(CFLAGS) -O2
@@ -134,7 +136,7 @@ endif
 
 PROGS=qjs$(EXE) qjsc$(EXE) run-test262
 ifneq ($(CROSS_PREFIX),)
-QJSC_CC=gcc
+QJSC_CC=$(CROSS_PREFIX)gcc
 QJSC=./host-qjsc
 PROGS+=$(QJSC)
 else
@@ -166,7 +168,7 @@ endif
 
 all: $(OBJDIR) $(OBJDIR)/quickjs.check.o $(OBJDIR)/qjs.check.o $(PROGS)
 
-QJS_LIB_OBJS=$(OBJDIR)/quickjs.o $(OBJDIR)/libregexp.o $(OBJDIR)/libunicode.o $(OBJDIR)/cutils.o $(OBJDIR)/quickjs-libc.o
+QJS_LIB_OBJS=$(OBJDIR)/quickjs.o $(OBJDIR)/libregexp.o $(OBJDIR)/libunicode.o $(OBJDIR)/cutils.o $(OBJDIR)/quickjs-libc.o $(OBJDIR)/quickjs-ffi.o
 
 QJS_OBJS=$(OBJDIR)/qjs.o $(OBJDIR)/repl.o $(QJS_LIB_OBJS)
 ifdef CONFIG_BIGNUM
@@ -175,7 +177,7 @@ QJS_OBJS+=$(OBJDIR)/qjscalc.o
 endif
 
 HOST_LIBS=-lm -ldl -lpthread
-LIBS=-lm
+LIBS=../libffi/arm-unknown-linux-gnueabihf/.libs/libffi.a -lm
 ifndef CONFIG_WIN32
 LIBS+=-ldl -lpthread
 endif
@@ -205,7 +207,7 @@ QJSC_DEFINES:=-DCONFIG_CC=\"$(QJSC_CC)\" -DCONFIG_PREFIX=\"$(prefix)\"
 ifdef CONFIG_LTO
 QJSC_DEFINES+=-DCONFIG_LTO
 endif
-QJSC_HOST_DEFINES:=-DCONFIG_CC=\"$(HOST_CC)\" -DCONFIG_PREFIX=\"$(prefix)\"
+QJSC_HOST_DEFINES:=-DCONFIG_CC=\"$(QJSC_CC)\" -DCONFIG_PREFIX=\"$(prefix)\"
 
 $(OBJDIR)/qjsc.o: CFLAGS+=$(QJSC_DEFINES)
 $(OBJDIR)/qjsc.host.o: CFLAGS+=$(QJSC_HOST_DEFINES)
