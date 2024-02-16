@@ -41,7 +41,7 @@ function dlOpen(filename) {
   return file;
 }
 
-function dlSym(filename, symbol) {
+function dlSymExact(filename, symbol) {
   let file = dlOpen(filename);
   if (file.symbols.hasOwnProperty(symbol)) {
     return file.symbols[symbol];
@@ -53,6 +53,14 @@ function dlSym(filename, symbol) {
   }
   file.symbols[symbol] = pointer;
   return pointer;
+}
+
+function dlSym(filename, symbol) {
+  try {
+    return dlSymExact(filename, symbol);
+  } catch (e) {
+    return dlSymExact(null, symbol);
+  }
 }
 
 function dlClose(filename) {
