@@ -26,8 +26,8 @@ SOFTWARE.
 #include <ffi.h>
 #include <gnu/lib-names.h>
 #include <limits.h>
-#include <quickjs/quickjs-libc.h>
-#include <quickjs/quickjs.h>
+#include "quickjs-libc.h"
+#include "quickjs.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

@@ -22,10 +22,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#define _GNU_SOURCE
-#define _LARGEFILE64_SOURCE 1
-#define _FILE_OFFSET_BITS 64
-#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -41,11 +37,6 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #if defined(_WIN32)
 #include <windows.h>
 #include <conio.h>
@@ -55,7 +46,6 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
-#include <sys/mman.h>
 
 #if defined(__FreeBSD__)
 extern char **environ;

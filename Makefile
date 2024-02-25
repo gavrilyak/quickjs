@@ -133,8 +133,6 @@ ifdef CONFIG_WIN32
 DEFINES+=-D__USE_MINGW_ANSI_STDIO # for standard snprintf behavior
 endif
 
-CROSS_PREFIX=arm-linux-gnueabihf-
-
 CFLAGS+=$(DEFINES)
 CFLAGS+=-I../libffi/arm-unknown-linux-gnueabihf/include -I.
 CFLAGS_DEBUG=$(CFLAGS) -O0
@@ -181,7 +179,7 @@ endif
 
 PROGS=qjs$(EXE) qjsc$(EXE) run-test262
 ifneq ($(CROSS_PREFIX),)
-QJSC_CC=$(CROSS_PREFIX)gcc
+QJSC_CC=gcc
 QJSC=./host-qjsc
 PROGS+=$(QJSC)
 else
@@ -222,8 +220,8 @@ ifdef CONFIG_BIGNUM
 QJS_OBJS+=$(OBJDIR)/qjscalc.o
 endif
 
-HOST_LIBS=-lm -ldl -lpthread
-LIBS=-lm
+HOST_LIBS=-lm -ldl -lpthread -lffi
+LIBS=-lm ../libffi/arm-unknown-linux-gnueabihf/.libs/libffi.a
 ifndef CONFIG_WIN32
 LIBS+=-ldl -lpthread
 endif
@@ -253,7 +251,7 @@ QJSC_DEFINES:=-DCONFIG_CC=\"$(QJSC_CC)\" -DCONFIG_PREFIX=\"$(PREFIX)\"
 ifdef CONFIG_LTO
 QJSC_DEFINES+=-DCONFIG_LTO
 endif
-QJSC_HOST_DEFINES:=-DCONFIG_CC=\"$(HOST_CC)\" -DCONFIG_PREFIX=\"$(prefix)\"
+QJSC_HOST_DEFINES:=-DCONFIG_CC=\"$(HOST_CC)\" -DCONFIG_PREFIX=\"$(PREFIX)\"
 
 $(OBJDIR)/qjsc.o: CFLAGS+=$(QJSC_DEFINES)
 $(OBJDIR)/qjsc.host.o: CFLAGS+=$(QJSC_HOST_DEFINES)
